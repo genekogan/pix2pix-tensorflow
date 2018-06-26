@@ -326,6 +326,9 @@ def load_examples():
 def create_generator(generator_inputs, generator_outputs_channels):
     layers = []
 
+    # identity layer for queryable name
+    generator_inputs = tf.identity(generator_inputs, name = 'generator_inputs')
+
     # encoder_1: [batch, 256, 256, in_channels] => [batch, 128, 128, ngf]
     with tf.variable_scope("encoder_1"):
         output = gen_conv(generator_inputs, a.ngf)
@@ -387,6 +390,9 @@ def create_generator(generator_inputs, generator_outputs_channels):
         output = gen_deconv(rectified, generator_outputs_channels)
         output = tf.tanh(output)
         layers.append(output)
+
+    # identity layer for queryable name
+    layers.append(tf.identity(layers[-1], name='generator_outputs'))
 
     return layers[-1]
 
@@ -619,6 +625,10 @@ def main():
             print("exporting model")
             export_saver.export_meta_graph(filename=os.path.join(a.output_dir, "export.meta"))
             export_saver.save(sess, os.path.join(a.output_dir, "export"), write_meta_graph=False)
+            
+            # write frozen graph
+            graph_frz = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def, ['generator/generator_outputs'])
+            tf.train.write_graph(graph_frz, a.output_dir, 'graph_frz.pb', as_text=False)
 
         return
 
